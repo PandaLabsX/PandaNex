@@ -1,58 +1,18 @@
-# IntelliJ / Android Studio IDE files
 *.iml
-.idea/
+.gradle
+.kotlin
+/local.properties
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
-
-# Gradle & Kotlin build caches and local outputs
-.gradle/
-.kotlin/
-build/
-/build
-app/build/
-**/build/
-.build-outputs/
-/captures
-.externalNativeBuild/
-.cxx/
-
-# Local environment & AI Studio workspace metadata
-/local.properties
-local.properties
-.aistudio/
-
-# Environment secrets (keep .env.example tracked for Secrets Gradle Plugin)
-.env
-.env.*
-!.env.example
-
-# Private Android signing keystores & certificates (never commit keys!)
-*.jks
-*.keystore
-*.p12
-*.pfx
-*.pem
-*.key
-debug.keystore
-debug.keystore.base64
-
-# OS & temporary files
 .DS_Store
-Thumbs.db
-*~
-*.swp
-*.swo
-*.tmp
-*.bak
-*.log
-
-# Explicitly keep Gradle Wrapper & Codemagic CI files tracked for GitHub builds
-!gradle/wrapper/gradle-wrapper.jar
-!gradle/wrapper/gradle-wrapper.properties
-!gradlew
-!gradlew.bat
-!codemagic.yaml
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+.env
+debug.keystore
