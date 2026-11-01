@@ -1,0 +1,6 @@
+{
+  "name": "PandaNex",
+  "description": "Ultimate smart Android device control center combining real-time hardware monitoring, diagnostics, developer utilities, smart gesture automation, and intelligent alerts with Clean Aqua Dynamics design.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
