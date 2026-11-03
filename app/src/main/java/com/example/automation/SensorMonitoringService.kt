@@ -45,7 +45,7 @@ class SensorMonitoringService : Service() {
         val notification = NotificationCompat.Builder(this, NotificationChannels.CHANNEL_SERVICE)
             .setSmallIcon(R.drawable.ic_pandanex_notify)
             .setContentTitle("PandaNex Active Control")
-            .setContentText("Monitoring Quick Capture, Flip-to-DND, Auto-Dim & Edge Glow")
+            .setContentText("Monitoring Smart Gestures, Call Controls, Dimmed App & Screen Saver")
             .setOngoing(true)
             .setColor(0xFF00C8D7.toInt())
             .setContentIntent(pendingIntent)
@@ -63,6 +63,7 @@ class SensorMonitoringService : Service() {
 
         app.container.automationEngine.startForegroundInteractiveMonitoring()
         app.container.quickCaptureController.setBackgroundServiceActive(true)
+        app.container.smartGestureManager.setBackgroundServiceActive(true)
         app.container.edgeGlowManager.syncTelephonyCallListener()
         app.container.aquaDynamicsManager.syncTelephonyCallListener()
         app.container.fullScreenDetector.syncProbeAndMonitorLoop()
@@ -107,6 +108,7 @@ class SensorMonitoringService : Service() {
         val app = application as PandaNexApplication
         app.container.automationEngine.stopForegroundInteractiveMonitoring()
         app.container.quickCaptureController.setBackgroundServiceActive(false)
+        app.container.smartGestureManager.setBackgroundServiceActive(false)
         app.container.autoDimController.restoreNormalBrightness("Background service stopped")
         serviceScope.cancel()
         super.onDestroy()

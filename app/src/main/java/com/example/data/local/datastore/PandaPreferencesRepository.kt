@@ -95,11 +95,53 @@ data class PandaSettings(
     val edgeGlowStrokeDp: Float = 8f,
     val edgeGlowDurationMs: Long = 3500L,
 
-    // Auto-Dimmed Apps (Banking & Privacy Screen Dimming)
+    // Auto-Dimmed Apps / Dimmed App Feature (10%–90% intensity, individual app rules & temporary pause)
     val autoDimAppsEnabled: Boolean = false,
-    val autoDimTargetBrightnessPercent: Int = 15,
+    val autoDimTargetBrightnessPercent: Int = 20,
+    val autoDimIntensityPercent: Int = 55, // 10%..90% configurable dimming overlay intensity
     val autoDimUseExtraPrivacyShade: Boolean = true,
     val autoDimPackagesCsv: String = "",
+    val autoDimDisabledRulesCsv: String = "",
+    val autoDimTempPausedUntilMs: Long = 0L,
+
+    // Smart Motion Gestures, Call Controls & Display Intelligence
+    val raiseToWakeEnabled: Boolean = false,
+    val raiseToWakeSensitivity: String = "MEDIUM", // LOW, MEDIUM, HIGH
+    val raiseToWakeVibrationEnabled: Boolean = true,
+    val raiseToWakeCooldownMs: Long = 3500L,
+
+    val pickUpToSilenceEnabled: Boolean = false,
+    val pickUpToSilenceSensitivity: String = "MEDIUM", // LOW, MEDIUM, HIGH
+    val pickUpToSilenceVibrationEnabled: Boolean = true,
+
+    val proximityCallAnswerEnabled: Boolean = false,
+    val proximityAnswerDelayMs: Long = 800L,
+    val proximityAnswerVibrationEnabled: Boolean = true,
+
+    val putDownToSleepEnabled: Boolean = false,
+    val putDownToSleepSensitivity: String = "MEDIUM", // LOW, MEDIUM, HIGH
+    val putDownToSleepDelayMs: Long = 1500L,
+    val putDownToSleepCooldownMs: Long = 5000L,
+    val putDownToSleepVibrationEnabled: Boolean = true,
+    val putDownSurfaceMode: String = "BOTH", // BOTH, FACE_DOWN, FACE_UP
+
+    // Smart Screen Saver – Motion Activated & DreamService
+    val screenSaverEnabled: Boolean = false,
+    val screenSaverStyle: String = "AQUA_DIGITAL", // AQUA_DIGITAL, MINIMAL_ANALOG, NEON_CLOCK, MINIMAL_AOD, AQUA_WAVES, DIGITAL_INFO, CUSTOM_MINIMAL
+    val screenSaverUse24Hour: Boolean = false,
+    val screenSaverShowDate: Boolean = true,
+    val screenSaverShowBattery: Boolean = true,
+    val screenSaverShowNotifications: Boolean = true,
+    val screenSaverBrightnessPercent: Int = 28, // 5%..100%
+    val screenSaverTimeoutSec: Int = 12, // 5s..60s
+    val screenSaverStationaryOffSec: Int = 4, // 2s..15s
+    val screenSaverMotionSensitivity: String = "MEDIUM", // LOW, MEDIUM, HIGH
+    val screenSaverCooldownMs: Long = 4500L,
+    val screenSaverAnimationsEnabled: Boolean = true,
+    val screenSaverVibrationEnabled: Boolean = false,
+    val screenSaverCustomLayout: String = "STACKED", // STACKED, INLINE_CLASSIC, LEFT_EDITORIAL
+    val screenSaverCustomTextScale: String = "BALANCED", // COMPACT, BALANCED, BOLD_LARGE
+    val screenSaverCustomBgTheme: String = "PURE_OLED_BLACK", // PURE_OLED_BLACK, DEEP_ABYSS_TEAL, MIDNIGHT_AURORA
 
     // Quick Action Center Customizable Order (comma-separated IDs)
     val quickActionsOrder: String = "AQUA_DYNAMICS,FLASHLIGHT,DND,EDGE_GLOW,AUTO_DIM,WIFI,BLUETOOTH,HOTSPOT,AIRPLANE,BATTERY,HEALTH,NETWORK_DIAG,QR_SCANNER,SENSOR_LAB,DEV_TOOLS,SMART_ACTIONS"
@@ -109,6 +151,15 @@ data class PandaSettings(
             .map { it.trim() }
             .filter { it.isNotEmpty() }
             .toSet()
+
+    val autoDimDisabledRulesSet: Set<String>
+        get() = autoDimDisabledRulesCsv.split(",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .toSet()
+
+    val activeAutoDimPackagesSet: Set<String>
+        get() = autoDimPackagesSet - autoDimDisabledRulesSet
 
     val persistedDismissedSignatures: Set<String>
         get() = aquaPersistedDismissedCsv.split("|")
@@ -193,8 +244,48 @@ class PandaPreferencesRepository(private val context: Context) {
 
         val AUTO_DIM_ENABLED = booleanPreferencesKey("auto_dim_enabled")
         val AUTO_DIM_BRIGHTNESS_PCT = intPreferencesKey("auto_dim_brightness_pct")
+        val AUTO_DIM_INTENSITY_PCT = intPreferencesKey("auto_dim_intensity_pct")
         val AUTO_DIM_EXTRA_SHADE = booleanPreferencesKey("auto_dim_extra_shade")
         val AUTO_DIM_PACKAGES_CSV = stringPreferencesKey("auto_dim_packages_csv")
+        val AUTO_DIM_DISABLED_RULES_CSV = stringPreferencesKey("auto_dim_disabled_rules_csv")
+        val AUTO_DIM_TEMP_PAUSED_UNTIL = longPreferencesKey("auto_dim_temp_paused_until")
+
+        val RAISE_TO_WAKE_ENABLED = booleanPreferencesKey("raise_to_wake_enabled")
+        val RAISE_TO_WAKE_SENSITIVITY = stringPreferencesKey("raise_to_wake_sensitivity")
+        val RAISE_TO_WAKE_VIBRATION = booleanPreferencesKey("raise_to_wake_vibration")
+        val RAISE_TO_WAKE_COOLDOWN_MS = longPreferencesKey("raise_to_wake_cooldown_ms")
+
+        val PICKUP_SILENCE_ENABLED = booleanPreferencesKey("pickup_silence_enabled")
+        val PICKUP_SILENCE_SENSITIVITY = stringPreferencesKey("pickup_silence_sensitivity")
+        val PICKUP_SILENCE_VIBRATION = booleanPreferencesKey("pickup_silence_vibration")
+
+        val PROXIMITY_ANSWER_ENABLED = booleanPreferencesKey("proximity_answer_enabled")
+        val PROXIMITY_ANSWER_DELAY_MS = longPreferencesKey("proximity_answer_delay_ms")
+        val PROXIMITY_ANSWER_VIBRATION = booleanPreferencesKey("proximity_answer_vibration")
+
+        val PUT_DOWN_SLEEP_ENABLED = booleanPreferencesKey("put_down_sleep_enabled")
+        val PUT_DOWN_SLEEP_SENSITIVITY = stringPreferencesKey("put_down_sleep_sensitivity")
+        val PUT_DOWN_SLEEP_DELAY_MS = longPreferencesKey("put_down_sleep_delay_ms")
+        val PUT_DOWN_SLEEP_COOLDOWN_MS = longPreferencesKey("put_down_sleep_cooldown_ms")
+        val PUT_DOWN_SLEEP_VIBRATION = booleanPreferencesKey("put_down_sleep_vibration")
+        val PUT_DOWN_SURFACE_MODE = stringPreferencesKey("put_down_surface_mode")
+
+        val SCREEN_SAVER_ENABLED = booleanPreferencesKey("screen_saver_enabled")
+        val SCREEN_SAVER_STYLE = stringPreferencesKey("screen_saver_style")
+        val SCREEN_SAVER_USE_24H = booleanPreferencesKey("screen_saver_use_24h")
+        val SCREEN_SAVER_SHOW_DATE = booleanPreferencesKey("screen_saver_show_date")
+        val SCREEN_SAVER_SHOW_BATTERY = booleanPreferencesKey("screen_saver_show_battery")
+        val SCREEN_SAVER_SHOW_NOTIFS = booleanPreferencesKey("screen_saver_show_notifs")
+        val SCREEN_SAVER_BRIGHTNESS_PCT = intPreferencesKey("screen_saver_brightness_pct")
+        val SCREEN_SAVER_TIMEOUT_SEC = intPreferencesKey("screen_saver_timeout_sec")
+        val SCREEN_SAVER_STATIONARY_OFF_SEC = intPreferencesKey("screen_saver_stationary_off_sec")
+        val SCREEN_SAVER_SENSITIVITY = stringPreferencesKey("screen_saver_sensitivity")
+        val SCREEN_SAVER_COOLDOWN_MS = longPreferencesKey("screen_saver_cooldown_ms")
+        val SCREEN_SAVER_ANIMATIONS = booleanPreferencesKey("screen_saver_animations")
+        val SCREEN_SAVER_VIBRATION = booleanPreferencesKey("screen_saver_vibration")
+        val SCREEN_SAVER_CUSTOM_LAYOUT = stringPreferencesKey("screen_saver_custom_layout")
+        val SCREEN_SAVER_CUSTOM_SCALE = stringPreferencesKey("screen_saver_custom_scale")
+        val SCREEN_SAVER_CUSTOM_BG = stringPreferencesKey("screen_saver_custom_bg")
 
         val QUICK_ACTIONS_ORDER = stringPreferencesKey("quick_actions_order")
     }
@@ -269,9 +360,44 @@ class PandaPreferencesRepository(private val context: Context) {
             edgeGlowStrokeDp = prefs[Keys.EDGE_GLOW_STROKE_DP] ?: 8f,
             edgeGlowDurationMs = prefs[Keys.EDGE_GLOW_DURATION_MS] ?: 3500L,
             autoDimAppsEnabled = prefs[Keys.AUTO_DIM_ENABLED] ?: false,
-            autoDimTargetBrightnessPercent = prefs[Keys.AUTO_DIM_BRIGHTNESS_PCT] ?: 15,
+            autoDimTargetBrightnessPercent = prefs[Keys.AUTO_DIM_BRIGHTNESS_PCT] ?: 20,
+            autoDimIntensityPercent = (prefs[Keys.AUTO_DIM_INTENSITY_PCT] ?: 55).coerceIn(10, 90),
             autoDimUseExtraPrivacyShade = prefs[Keys.AUTO_DIM_EXTRA_SHADE] ?: true,
             autoDimPackagesCsv = prefs[Keys.AUTO_DIM_PACKAGES_CSV] ?: "",
+            autoDimDisabledRulesCsv = prefs[Keys.AUTO_DIM_DISABLED_RULES_CSV] ?: "",
+            autoDimTempPausedUntilMs = prefs[Keys.AUTO_DIM_TEMP_PAUSED_UNTIL] ?: 0L,
+            raiseToWakeEnabled = prefs[Keys.RAISE_TO_WAKE_ENABLED] ?: false,
+            raiseToWakeSensitivity = prefs[Keys.RAISE_TO_WAKE_SENSITIVITY] ?: "MEDIUM",
+            raiseToWakeVibrationEnabled = prefs[Keys.RAISE_TO_WAKE_VIBRATION] ?: true,
+            raiseToWakeCooldownMs = prefs[Keys.RAISE_TO_WAKE_COOLDOWN_MS] ?: 3500L,
+            pickUpToSilenceEnabled = prefs[Keys.PICKUP_SILENCE_ENABLED] ?: false,
+            pickUpToSilenceSensitivity = prefs[Keys.PICKUP_SILENCE_SENSITIVITY] ?: "MEDIUM",
+            pickUpToSilenceVibrationEnabled = prefs[Keys.PICKUP_SILENCE_VIBRATION] ?: true,
+            proximityCallAnswerEnabled = prefs[Keys.PROXIMITY_ANSWER_ENABLED] ?: false,
+            proximityAnswerDelayMs = prefs[Keys.PROXIMITY_ANSWER_DELAY_MS] ?: 800L,
+            proximityAnswerVibrationEnabled = prefs[Keys.PROXIMITY_ANSWER_VIBRATION] ?: true,
+            putDownToSleepEnabled = prefs[Keys.PUT_DOWN_SLEEP_ENABLED] ?: false,
+            putDownToSleepSensitivity = prefs[Keys.PUT_DOWN_SLEEP_SENSITIVITY] ?: "MEDIUM",
+            putDownToSleepDelayMs = prefs[Keys.PUT_DOWN_SLEEP_DELAY_MS] ?: 1500L,
+            putDownToSleepCooldownMs = prefs[Keys.PUT_DOWN_SLEEP_COOLDOWN_MS] ?: 5000L,
+            putDownToSleepVibrationEnabled = prefs[Keys.PUT_DOWN_SLEEP_VIBRATION] ?: true,
+            putDownSurfaceMode = prefs[Keys.PUT_DOWN_SURFACE_MODE] ?: "BOTH",
+            screenSaverEnabled = prefs[Keys.SCREEN_SAVER_ENABLED] ?: false,
+            screenSaverStyle = prefs[Keys.SCREEN_SAVER_STYLE] ?: "AQUA_DIGITAL",
+            screenSaverUse24Hour = prefs[Keys.SCREEN_SAVER_USE_24H] ?: false,
+            screenSaverShowDate = prefs[Keys.SCREEN_SAVER_SHOW_DATE] ?: true,
+            screenSaverShowBattery = prefs[Keys.SCREEN_SAVER_SHOW_BATTERY] ?: true,
+            screenSaverShowNotifications = prefs[Keys.SCREEN_SAVER_SHOW_NOTIFS] ?: true,
+            screenSaverBrightnessPercent = (prefs[Keys.SCREEN_SAVER_BRIGHTNESS_PCT] ?: 28).coerceIn(5, 100),
+            screenSaverTimeoutSec = (prefs[Keys.SCREEN_SAVER_TIMEOUT_SEC] ?: 12).coerceIn(5, 60),
+            screenSaverStationaryOffSec = (prefs[Keys.SCREEN_SAVER_STATIONARY_OFF_SEC] ?: 4).coerceIn(2, 15),
+            screenSaverMotionSensitivity = prefs[Keys.SCREEN_SAVER_SENSITIVITY] ?: "MEDIUM",
+            screenSaverCooldownMs = prefs[Keys.SCREEN_SAVER_COOLDOWN_MS] ?: 4500L,
+            screenSaverAnimationsEnabled = prefs[Keys.SCREEN_SAVER_ANIMATIONS] ?: true,
+            screenSaverVibrationEnabled = prefs[Keys.SCREEN_SAVER_VIBRATION] ?: false,
+            screenSaverCustomLayout = prefs[Keys.SCREEN_SAVER_CUSTOM_LAYOUT] ?: "STACKED",
+            screenSaverCustomTextScale = prefs[Keys.SCREEN_SAVER_CUSTOM_SCALE] ?: "BALANCED",
+            screenSaverCustomBgTheme = prefs[Keys.SCREEN_SAVER_CUSTOM_BG] ?: "PURE_OLED_BLACK",
             quickActionsOrder = prefs[Keys.QUICK_ACTIONS_ORDER]
                 ?: "AQUA_DYNAMICS,FLASHLIGHT,DND,EDGE_GLOW,AUTO_DIM,WIFI,BLUETOOTH,HOTSPOT,AIRPLANE,BATTERY,HEALTH,NETWORK_DIAG,QR_SCANNER,SENSOR_LAB,DEV_TOOLS,SMART_ACTIONS"
         )
@@ -431,12 +557,21 @@ class PandaPreferencesRepository(private val context: Context) {
     suspend fun updateAutoDimSettings(
         enabled: Boolean? = null,
         targetBrightnessPercent: Int? = null,
+        intensityPercent: Int? = null,
         useExtraPrivacyShade: Boolean? = null,
-        packagesSet: Set<String>? = null
+        packagesSet: Set<String>? = null,
+        disabledRulesSet: Set<String>? = null,
+        tempPausedUntilMs: Long? = null
     ) {
         context.pandaDataStore.edit { prefs ->
             enabled?.let { prefs[Keys.AUTO_DIM_ENABLED] = it }
-            targetBrightnessPercent?.let { prefs[Keys.AUTO_DIM_BRIGHTNESS_PCT] = it.coerceIn(5, 45) }
+            targetBrightnessPercent?.let { prefs[Keys.AUTO_DIM_BRIGHTNESS_PCT] = it.coerceIn(5, 90) }
+            intensityPercent?.let { pct ->
+                val clamped = pct.coerceIn(10, 90)
+                prefs[Keys.AUTO_DIM_INTENSITY_PCT] = clamped
+                // Keep target brightness inversely synchronized (100 - intensity)
+                prefs[Keys.AUTO_DIM_BRIGHTNESS_PCT] = (100 - clamped).coerceIn(10, 90)
+            }
             useExtraPrivacyShade?.let { prefs[Keys.AUTO_DIM_EXTRA_SHADE] = it }
             packagesSet?.let { set ->
                 prefs[Keys.AUTO_DIM_PACKAGES_CSV] = set.map { it.trim() }
@@ -444,6 +579,13 @@ class PandaPreferencesRepository(private val context: Context) {
                     .sorted()
                     .joinToString(",")
             }
+            disabledRulesSet?.let { set ->
+                prefs[Keys.AUTO_DIM_DISABLED_RULES_CSV] = set.map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .sorted()
+                    .joinToString(",")
+            }
+            tempPausedUntilMs?.let { prefs[Keys.AUTO_DIM_TEMP_PAUSED_UNTIL] = it.coerceAtLeast(0L) }
         }
     }
 
@@ -456,12 +598,166 @@ class PandaPreferencesRepository(private val context: Context) {
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
                 .toMutableSet()
+            val disabled = (prefs[Keys.AUTO_DIM_DISABLED_RULES_CSV] ?: "")
+                .split(",")
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .toMutableSet()
             if (current.contains(cleanPkg)) {
                 current.remove(cleanPkg)
+                disabled.remove(cleanPkg)
             } else {
                 current.add(cleanPkg)
+                disabled.remove(cleanPkg)
             }
             prefs[Keys.AUTO_DIM_PACKAGES_CSV] = current.sorted().joinToString(",")
+            prefs[Keys.AUTO_DIM_DISABLED_RULES_CSV] = disabled.sorted().joinToString(",")
+        }
+    }
+
+    suspend fun setIndividualAppDimRuleEnabled(packageName: String, ruleEnabled: Boolean) {
+        val cleanPkg = packageName.trim()
+        if (cleanPkg.isEmpty()) return
+        context.pandaDataStore.edit { prefs ->
+            val disabled = (prefs[Keys.AUTO_DIM_DISABLED_RULES_CSV] ?: "")
+                .split(",")
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .toMutableSet()
+            if (ruleEnabled) {
+                disabled.remove(cleanPkg)
+            } else {
+                disabled.add(cleanPkg)
+            }
+            prefs[Keys.AUTO_DIM_DISABLED_RULES_CSV] = disabled.sorted().joinToString(",")
+        }
+    }
+
+    suspend fun resetAutoDimSettings() {
+        context.pandaDataStore.edit { prefs ->
+            prefs[Keys.AUTO_DIM_ENABLED] = false
+            prefs[Keys.AUTO_DIM_INTENSITY_PCT] = 55
+            prefs[Keys.AUTO_DIM_BRIGHTNESS_PCT] = 45
+            prefs[Keys.AUTO_DIM_EXTRA_SHADE] = true
+            prefs[Keys.AUTO_DIM_PACKAGES_CSV] = ""
+            prefs[Keys.AUTO_DIM_DISABLED_RULES_CSV] = ""
+            prefs[Keys.AUTO_DIM_TEMP_PAUSED_UNTIL] = 0L
+        }
+    }
+
+    suspend fun updateSmartMotionAndCallSettings(
+        raiseToWakeEnabled: Boolean? = null,
+        raiseToWakeSensitivity: String? = null,
+        raiseToWakeVibration: Boolean? = null,
+        raiseToWakeCooldownMs: Long? = null,
+        pickUpToSilenceEnabled: Boolean? = null,
+        pickUpToSilenceSensitivity: String? = null,
+        pickUpToSilenceVibration: Boolean? = null,
+        proximityCallAnswerEnabled: Boolean? = null,
+        proximityAnswerDelayMs: Long? = null,
+        proximityAnswerVibration: Boolean? = null,
+        putDownToSleepEnabled: Boolean? = null,
+        putDownToSleepSensitivity: String? = null,
+        putDownToSleepDelayMs: Long? = null,
+        putDownToSleepCooldownMs: Long? = null,
+        putDownToSleepVibration: Boolean? = null,
+        putDownSurfaceMode: String? = null
+    ) {
+        context.pandaDataStore.edit { prefs ->
+            raiseToWakeEnabled?.let { prefs[Keys.RAISE_TO_WAKE_ENABLED] = it }
+            raiseToWakeSensitivity?.let {
+                val clean = it.uppercase()
+                if (clean in setOf("LOW", "MEDIUM", "HIGH")) prefs[Keys.RAISE_TO_WAKE_SENSITIVITY] = clean
+            }
+            raiseToWakeVibration?.let { prefs[Keys.RAISE_TO_WAKE_VIBRATION] = it }
+            raiseToWakeCooldownMs?.let { prefs[Keys.RAISE_TO_WAKE_COOLDOWN_MS] = it.coerceIn(1500L, 12000L) }
+
+            pickUpToSilenceEnabled?.let { prefs[Keys.PICKUP_SILENCE_ENABLED] = it }
+            pickUpToSilenceSensitivity?.let {
+                val clean = it.uppercase()
+                if (clean in setOf("LOW", "MEDIUM", "HIGH")) prefs[Keys.PICKUP_SILENCE_SENSITIVITY] = clean
+            }
+            pickUpToSilenceVibration?.let { prefs[Keys.PICKUP_SILENCE_VIBRATION] = it }
+
+            proximityCallAnswerEnabled?.let { prefs[Keys.PROXIMITY_ANSWER_ENABLED] = it }
+            proximityAnswerDelayMs?.let { prefs[Keys.PROXIMITY_ANSWER_DELAY_MS] = it.coerceIn(400L, 2500L) }
+            proximityAnswerVibration?.let { prefs[Keys.PROXIMITY_ANSWER_VIBRATION] = it }
+
+            putDownToSleepEnabled?.let { prefs[Keys.PUT_DOWN_SLEEP_ENABLED] = it }
+            putDownToSleepSensitivity?.let {
+                val clean = it.uppercase()
+                if (clean in setOf("LOW", "MEDIUM", "HIGH")) prefs[Keys.PUT_DOWN_SLEEP_SENSITIVITY] = clean
+            }
+            putDownToSleepDelayMs?.let { prefs[Keys.PUT_DOWN_SLEEP_DELAY_MS] = it.coerceIn(800L, 4500L) }
+            putDownToSleepCooldownMs?.let { prefs[Keys.PUT_DOWN_SLEEP_COOLDOWN_MS] = it.coerceIn(2500L, 12000L) }
+            putDownToSleepVibration?.let { prefs[Keys.PUT_DOWN_SLEEP_VIBRATION] = it }
+            putDownSurfaceMode?.let {
+                val clean = it.uppercase()
+                if (clean in setOf("BOTH", "FACE_DOWN", "FACE_UP")) prefs[Keys.PUT_DOWN_SURFACE_MODE] = clean
+            }
+        }
+    }
+
+    suspend fun updateScreenSaverSettings(
+        enabled: Boolean? = null,
+        style: String? = null,
+        use24Hour: Boolean? = null,
+        showDate: Boolean? = null,
+        showBattery: Boolean? = null,
+        showNotifications: Boolean? = null,
+        brightnessPercent: Int? = null,
+        timeoutSec: Int? = null,
+        stationaryOffSec: Int? = null,
+        motionSensitivity: String? = null,
+        cooldownMs: Long? = null,
+        animationsEnabled: Boolean? = null,
+        vibrationEnabled: Boolean? = null,
+        customLayout: String? = null,
+        customTextScale: String? = null,
+        customBgTheme: String? = null
+    ) {
+        val validStyles = setOf(
+            "AQUA_DIGITAL", "MINIMAL_ANALOG", "NEON_CLOCK",
+            "MINIMAL_AOD", "AQUA_WAVES", "DIGITAL_INFO", "CUSTOM_MINIMAL"
+        )
+        context.pandaDataStore.edit { prefs ->
+            enabled?.let { prefs[Keys.SCREEN_SAVER_ENABLED] = it }
+            style?.let {
+                val clean = it.uppercase()
+                if (clean in validStyles) prefs[Keys.SCREEN_SAVER_STYLE] = clean
+            }
+            use24Hour?.let { prefs[Keys.SCREEN_SAVER_USE_24H] = it }
+            showDate?.let { prefs[Keys.SCREEN_SAVER_SHOW_DATE] = it }
+            showBattery?.let { prefs[Keys.SCREEN_SAVER_SHOW_BATTERY] = it }
+            showNotifications?.let { prefs[Keys.SCREEN_SAVER_SHOW_NOTIFS] = it }
+            brightnessPercent?.let { prefs[Keys.SCREEN_SAVER_BRIGHTNESS_PCT] = it.coerceIn(5, 100) }
+            timeoutSec?.let { prefs[Keys.SCREEN_SAVER_TIMEOUT_SEC] = it.coerceIn(5, 60) }
+            stationaryOffSec?.let { prefs[Keys.SCREEN_SAVER_STATIONARY_OFF_SEC] = it.coerceIn(2, 15) }
+            motionSensitivity?.let {
+                val clean = it.uppercase()
+                if (clean in setOf("LOW", "MEDIUM", "HIGH")) prefs[Keys.SCREEN_SAVER_SENSITIVITY] = clean
+            }
+            cooldownMs?.let { prefs[Keys.SCREEN_SAVER_COOLDOWN_MS] = it.coerceIn(2000L, 15000L) }
+            animationsEnabled?.let { prefs[Keys.SCREEN_SAVER_ANIMATIONS] = it }
+            vibrationEnabled?.let { prefs[Keys.SCREEN_SAVER_VIBRATION] = it }
+            customLayout?.let {
+                val clean = it.uppercase()
+                if (clean in setOf("STACKED", "INLINE_CLASSIC", "LEFT_EDITORIAL")) {
+                    prefs[Keys.SCREEN_SAVER_CUSTOM_LAYOUT] = clean
+                }
+            }
+            customTextScale?.let {
+                val clean = it.uppercase()
+                if (clean in setOf("COMPACT", "BALANCED", "BOLD_LARGE")) {
+                    prefs[Keys.SCREEN_SAVER_CUSTOM_SCALE] = clean
+                }
+            }
+            customBgTheme?.let {
+                val clean = it.uppercase()
+                if (clean in setOf("PURE_OLED_BLACK", "DEEP_ABYSS_TEAL", "MIDNIGHT_AURORA")) {
+                    prefs[Keys.SCREEN_SAVER_CUSTOM_BG] = clean
+                }
+            }
         }
     }
 

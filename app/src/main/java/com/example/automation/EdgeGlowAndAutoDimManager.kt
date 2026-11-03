@@ -75,10 +75,15 @@ data class AutoDimStatus(
     val hasOverlayPermission: Boolean = false,
     val isCurrentlyDimmed: Boolean = false,
     val isPreviewActive: Boolean = false,
+    val isTemporarilyPaused: Boolean = false,
+    val pausedRemainingSeconds: Long = 0L,
+    val dimmingIntensityPercent: Int = 55,
+    val activeRulesCount: Int = 0,
+    val totalSelectedCount: Int = 0,
     val activeForegroundPackage: String = "",
     val dimmedForPackage: String = "",
     val savedBrightnessRaw: Int? = null,
-    val lastEventSummary: String = "Select banking or privacy apps to auto-dim when opened"
+    val lastEventSummary: String = "Select apps to apply configurable 10%–90% privacy dimming"
 )
 
 data class SelectableAppItem(
@@ -586,10 +591,13 @@ class EdgeGlowNotificationService : NotificationListenerService() {
     }
 }
 
+typealias DimmedAppManager = AutoDimController
+
 /**
- * Monitors foreground app transitions via UsageStatsManager and automatically dims screen brightness
- * (plus optional privacy shade overlay) when banking or user-selected sensitive apps are opened,
- * restoring the exact prior system brightness when exiting.
+ * Monitors foreground app transitions via UsageStatsManager and applies a configurable 10%–90%
+ * privacy dimming overlay (and optional system brightness reduction) when user-selected apps are
+ * active, automatically bypassing system permission/installer/accessibility dialogs and restoring
+ * normal brightness on exit or temporary pause.
  */
 class AutoDimController(
     private val context: Context,
@@ -618,20 +626,32 @@ class AutoDimController(
             preferencesRepository.settingsFlow.collectLatest { settings ->
                 currentSettings = settings
                 refreshPermissions()
+                val now = System.currentTimeMillis()
+                val paused = settings.autoDimTempPausedUntilMs > now
+                val remSec = if (paused) ((settings.autoDimTempPausedUntilMs - now) / 1000L) else 0L
+                _status.value = _status.value.copy(
+                    dimmingIntensityPercent = settings.autoDimIntensityPercent,
+                    isTemporarilyPaused = paused,
+                    pausedRemainingSeconds = remSec,
+                    activeRulesCount = settings.activeAutoDimPackagesSet.size,
+                    totalSelectedCount = settings.autoDimPackagesSet.size
+                )
+
                 if (settings.autoDimAppsEnabled) {
                     startMonitoringLoop()
-                    // Re-evaluate immediately if brightness slider changed while dimmed
-                    if (_status.value.isCurrentlyDimmed && _status.value.dimmedForPackage.isNotEmpty()) {
-                        if (_status.value.dimmedForPackage !in settings.autoDimPackagesSet) {
-                            restoreNormalBrightness("Removed from Auto-Dim list")
+                    if (paused && _status.value.isCurrentlyDimmed && !_status.value.isPreviewActive) {
+                        restoreNormalBrightness("Temporarily paused (${remSec}s remaining)")
+                    } else if (_status.value.isCurrentlyDimmed && _status.value.dimmedForPackage.isNotEmpty() && !_status.value.isPreviewActive) {
+                        if (_status.value.dimmedForPackage !in settings.activeAutoDimPackagesSet) {
+                            restoreNormalBrightness("App rule disabled → restored normal brightness")
                         } else {
                             applyDimmingForPackage(_status.value.dimmedForPackage, settings)
                         }
                     }
                 } else {
                     stopMonitoringLoop()
-                    if (_status.value.isCurrentlyDimmed) {
-                        restoreNormalBrightness("Auto-Dim disabled")
+                    if (_status.value.isCurrentlyDimmed && !_status.value.isPreviewActive) {
+                        restoreNormalBrightness("Dimmed App disabled → restored normal brightness")
                     }
                 }
             }
@@ -667,27 +687,69 @@ class AutoDimController(
     suspend fun pollForegroundAppOnce() {
         refreshPermissions()
         val s = currentSettings
+        val now = System.currentTimeMillis()
+        val paused = s.autoDimTempPausedUntilMs > now
+        val remSec = if (paused) ((s.autoDimTempPausedUntilMs - now) / 1000L) else 0L
+
+        if (!paused && _status.value.isTemporarilyPaused) {
+            _status.value = _status.value.copy(
+                isTemporarilyPaused = false,
+                pausedRemainingSeconds = 0L,
+                lastEventSummary = "Temporary pause ended — Dimmed App protection active"
+            )
+        } else if (paused) {
+            if (_status.value.isCurrentlyDimmed && !_status.value.isPreviewActive) {
+                restoreNormalBrightness("Dimming temporarily paused")
+            }
+            _status.value = _status.value.copy(
+                isTemporarilyPaused = true,
+                pausedRemainingSeconds = remSec
+            )
+            return
+        }
+
         if (!s.autoDimAppsEnabled || !_status.value.hasUsageAccess) return
         if (_status.value.isPreviewActive) return
 
         val fgPkg = withContext(Dispatchers.Default) {
             queryCurrentForegroundPackage()
         }
-        if (fgPkg.isEmpty() || fgPkg == "com.android.systemui") return
+        if (fgPkg.isEmpty()) return
+
+        // Safety Bypass: NEVER cover Android permission controllers, package installers,
+        // accessibility dialogs, or system settings so touches are never obscured/blocked!
+        if (isSystemDialogOrProtectedPackage(fgPkg)) {
+            if (_status.value.isCurrentlyDimmed) {
+                restoreNormalBrightness("Suspended overlay for system permission / security UI")
+            }
+            return
+        }
+
+        if (fgPkg == "com.android.systemui") return
 
         lastObservedForegroundPkg = fgPkg
-        val shouldDim = s.autoDimPackagesSet.contains(fgPkg)
+        val shouldDim = s.activeAutoDimPackagesSet.contains(fgPkg)
 
         if (shouldDim && (!_status.value.isCurrentlyDimmed || _status.value.dimmedForPackage != fgPkg)) {
             applyDimmingForPackage(fgPkg, s)
         } else if (!shouldDim && _status.value.isCurrentlyDimmed) {
-            restoreNormalBrightness("Exited dimmed app → restored brightness")
+            restoreNormalBrightness("Exited dimmed app → restored normal brightness")
         } else {
             if (!shouldDim && shadeOverlayView != null && fullScreenDetector.state.value.isFullScreenActive) {
                 removeShadeOverlay()
             }
             _status.value = _status.value.copy(activeForegroundPackage = fgPkg)
         }
+    }
+
+    fun isSystemDialogOrProtectedPackage(pkg: String): Boolean {
+        val lower = pkg.lowercase()
+        return lower in SYSTEM_PROTECTED_PACKAGES ||
+            lower.contains("permissioncontroller") ||
+            lower.contains("packageinstaller") ||
+            lower.contains("biometric") ||
+            lower.contains("keychain") ||
+            lower.contains("accessibility")
     }
 
     private fun queryCurrentForegroundPackage(): String {
@@ -719,6 +781,9 @@ class AutoDimController(
     }
 
     private fun applyDimmingForPackage(pkg: String, settings: PandaSettings) {
+        val intensityPct = settings.autoDimIntensityPercent.coerceIn(10, 90)
+        val remainingBrightnessPct = (100 - intensityPct).coerceIn(10, 90)
+
         val cr = context.contentResolver
         if (savedBrightnessValue == null) {
             savedBrightnessValue = runCatching {
@@ -729,9 +794,9 @@ class AutoDimController(
             }.getOrDefault(Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC)
         }
 
-        val targetRaw = ((settings.autoDimTargetBrightnessPercent / 100f) * 255f)
+        val targetRaw = ((remainingBrightnessPct / 100f) * 255f)
             .roundToInt()
-            .coerceIn(4, 255)
+            .coerceIn(8, 235)
 
         var appliedSystemWrite = false
         if (Settings.System.canWrite(context)) {
@@ -750,8 +815,8 @@ class AutoDimController(
             (settings.autoDimUseExtraPrivacyShade || !appliedSystemWrite)
 
         if (shouldApplyShade) {
-            val shadeAlpha = ((1f - (settings.autoDimTargetBrightnessPercent / 100f)) * 0.62f)
-                .coerceIn(0.22f, 0.72f)
+            // Map 10%..90% dimming intensity cleanly onto 0.09..0.80 non-blocking alpha
+            val shadeAlpha = ((intensityPct / 100f) * 0.88f).coerceIn(0.08f, 0.80f)
             showOrUpdateShadeOverlay(shadeAlpha)
         } else {
             removeShadeOverlay()
@@ -759,10 +824,11 @@ class AutoDimController(
 
         _status.value = _status.value.copy(
             isCurrentlyDimmed = true,
+            dimmingIntensityPercent = intensityPct,
             activeForegroundPackage = pkg,
             dimmedForPackage = pkg,
             savedBrightnessRaw = savedBrightnessValue,
-            lastEventSummary = "Dimmed to ${settings.autoDimTargetBrightnessPercent}% for ${pkg.substringAfterLast('.')}"
+            lastEventSummary = "Dimmed ${intensityPct}% for ${pkg.substringAfterLast('.')}"
         )
     }
 
@@ -799,17 +865,44 @@ class AutoDimController(
             _status.value = _status.value.copy(isPreviewActive = true)
             applyDimmingForPackage(context.packageName, currentSettings)
             _status.value = _status.value.copy(
-                lastEventSummary = "Testing Auto-Dim (${currentSettings.autoDimTargetBrightnessPercent}%) for ${durationMs / 1000.0}s..."
+                lastEventSummary = "Previewing ${currentSettings.autoDimIntensityPercent}% dimming intensity for ${durationMs / 1000.0}s..."
             )
             delay(durationMs)
-            restoreNormalBrightness("Preview finished — original brightness restored")
+            restoreNormalBrightness("Preview finished — normal brightness restored")
+        }
+    }
+
+    fun pauseDimmingTemporarily(durationMinutes: Int = 10) {
+        val untilMs = System.currentTimeMillis() + (durationMinutes.coerceIn(1, 180) * 60_000L)
+        scope.launch {
+            restoreNormalBrightness("Temporarily paused for $durationMinutes min")
+            preferencesRepository.updateAutoDimSettings(tempPausedUntilMs = untilMs)
+        }
+    }
+
+    fun resumeDimmingNow() {
+        scope.launch {
+            preferencesRepository.updateAutoDimSettings(tempPausedUntilMs = 0L)
+            _status.value = _status.value.copy(
+                isTemporarilyPaused = false,
+                pausedRemainingSeconds = 0L,
+                lastEventSummary = "Dimmed App protection resumed"
+            )
+            pollForegroundAppOnce()
+        }
+    }
+
+    fun resetSettingsToDefaults() {
+        scope.launch {
+            restoreNormalBrightness("Dimmed App settings reset to defaults")
+            preferencesRepository.resetAutoDimSettings()
         }
     }
 
     private fun showOrUpdateShadeOverlay(alphaFraction: Float) {
         if (!Settings.canDrawOverlays(context)) return
         val wm = windowManager ?: return
-        val argb = (((alphaFraction.coerceIn(0.15f, 0.78f)) * 255f).roundToInt() shl 24)
+        val argb = (((alphaFraction.coerceIn(0.08f, 0.80f)) * 255f).roundToInt() shl 24)
         try {
             val existing = shadeOverlayView
             if (existing != null) {
@@ -825,8 +918,7 @@ class AutoDimController(
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT
             ).apply {
                 gravity = Gravity.TOP or Gravity.START
@@ -897,6 +989,17 @@ class AutoDimController(
     }
 
     companion object {
+        private val SYSTEM_PROTECTED_PACKAGES = setOf(
+            "com.android.permissioncontroller",
+            "com.google.android.permissioncontroller",
+            "com.samsung.android.permissioncontroller",
+            "com.android.packageinstaller",
+            "com.google.android.packageinstaller",
+            "com.android.settings",
+            "com.android.vpndialogs",
+            "com.android.certinstaller"
+        )
+
         fun hasUsageStatsPermission(context: Context): Boolean {
             return try {
                 val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager

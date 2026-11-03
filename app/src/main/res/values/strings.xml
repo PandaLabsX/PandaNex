@@ -66,4 +66,24 @@
     <string name="aqua_dynamics_expand_cd">Expand Aqua Dynamics capsule</string>
     <string name="aqua_dynamics_minimize_cd">Minimize Aqua Dynamics near camera</string>
     <string name="aqua_dynamics_dismiss_cd">Dismiss Aqua Dynamics event</string>
+
+    <!-- Smart Actions & Gestures Control Centre -->
+    <string name="smart_gestures_section_title">Smart Actions &amp; Gestures</string>
+    <string name="smart_gestures_section_subtitle">Intelligent Moto-style motion gestures, proximity call controls &amp; smart display protection</string>
+    <string name="device_admin_label">PandaNex Put Down to Sleep</string>
+    <string name="device_admin_description">Allows PandaNex to turn off and lock the display when Put Down to Sleep detects that your phone has been placed stably on a flat surface. PandaNex only requests the screen-lock privilege and never modifies passwords or erases data.</string>
+
+    <string name="gesture_raise_to_wake_title">Raise to Wake</string>
+    <string name="gesture_raise_to_wake_desc">Automatically wakes the display when you lift your phone from a resting surface while respecting lock-screen security.</string>
+    <string name="gesture_pickup_silence_title">Pick Up to Silence</string>
+    <string name="gesture_pickup_silence_desc">Silences an incoming call ringtone when you lift the ringing phone without declining or disconnecting the call.</string>
+    <string name="gesture_proximity_answer_title">Proximity Call Answer</string>
+    <string name="gesture_proximity_answer_desc">Answers an incoming ringing call when you lift the phone upright to your ear, pausing automatically when Bluetooth or car audio is active.</string>
+    <string name="gesture_put_down_sleep_title">Put Down to Sleep</string>
+    <string name="gesture_put_down_sleep_desc">Turns off or locks the display when you place the phone stably screen-up or screen-down on a flat surface after handheld use.</string>
+    <string name="gesture_dimmed_app_title">Dimmed App</string>
+    <string name="gesture_dimmed_app_desc" formatted="false">Applies a configurable 10%–90% privacy dimming overlay for selected apps and restores normal brightness automatically on exit.</string>
+    <string name="gesture_screen_saver_title">Smart Screen Saver</string>
+    <string name="gesture_screen_saver_desc">Motion-activated ambient Aqua clock &amp; telemetry display with 7 selectable styles and Android DreamService support.</string>
+    <string name="dream_service_label">PandaNex Smart Screen Saver</string>
 </resources>

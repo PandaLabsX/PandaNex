@@ -298,13 +298,37 @@ fun SettingsScreen(
                     SectionHeader(title = "Smart Actions & Background Engine", icon = Icons.Default.Bolt)
                     SettingSwitchRow(
                         title = "Foreground Gesture Service",
-                        subtitle = "Keep Flip-to-DND & Shake-to-Flashlight active in background",
+                        subtitle = "Keep Raise to Wake, Call Controls, Put Down to Sleep, Dimmed App & Screen Saver active in background",
                         checked = settings.backgroundMonitoringEnabled,
                         onCheckedChange = { viewModel.setBackgroundGestureService(it) }
                     )
                     KeyValueRow("DND Policy Access", if (gesture.dndPolicyGranted) "Granted" else "Not Granted")
                     KeyValueRow("Shake Sensitivity", "${String.format("%.1f", settings.shakeSensitivity)} m/s²")
                     KeyValueRow("Flip Detection Delay", "${settings.flipDelayMs} ms")
+                    if (onNavigate != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedButton(
+                                onClick = { onNavigate(PandaRoute.SmartGestures) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("btn_settings_open_smart_gestures")
+                            ) {
+                                Text("Smart Gestures")
+                            }
+                            OutlinedButton(
+                                onClick = { onNavigate(PandaRoute.SmartScreenSaver) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("btn_settings_open_screen_saver")
+                            ) {
+                                Text("Screen Saver")
+                            }
+                        }
+                    }
                 }
             }
 

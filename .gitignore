@@ -1,18 +1,62 @@
+# ==============================================================================
+# PandaNex — Android & Bitrise CI/CD .gitignore
+# ==============================================================================
+
+# Gradle & Kotlin build caches
+.gradle/
+.kotlin/
+build/
+/build
+app/build/
+**/build/
+.build-outputs/
+
+# AI Studio & local workspace metadata
+.aistudio/
+
+# Android Studio / IntelliJ IDEA files
 *.iml
-.gradle
-.kotlin
-/local.properties
+.idea/
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
-.DS_Store
-/build
 /captures
 .externalNativeBuild
 .cxx
+
+# Local machine SDK & environment secrets (NEVER commit secrets)
 local.properties
+/local.properties
 .env
+.env.*
+!.env.example
+
+# Android Keystores & private signing credentials (NEVER commit private keys)
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
 debug.keystore
+debug.keystore.base64
+my-upload-key.jks
+
+# OS & temporary files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+*.tmp
+*.bak
+
+# Explicitly keep Gradle Wrapper & Bitrise CI configuration tracked in Git
+!gradlew
+!gradlew.bat
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+!bitrise.yml

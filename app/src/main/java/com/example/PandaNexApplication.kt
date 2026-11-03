@@ -129,6 +129,19 @@ class PandaAppContainer(context: Application) {
         alertEngine = alertEngine
     )
 
+    val displayActionManager = com.example.automation.DisplayActionManager(context)
+    val dimmedAppManager = autoDimController
+
+    val smartGestureManager = com.example.automation.SmartGestureManager(
+        context = context,
+        dao = dao,
+        preferencesRepository = preferencesRepository,
+        displayActionManager = displayActionManager,
+        dimmedAppManager = dimmedAppManager,
+        fullScreenDetector = fullScreenDetector,
+        aquaDynamicsManager = aquaDynamicsManager
+    )
+
     val quickCaptureController = QuickCaptureController(
         context = context,
         dao = dao,

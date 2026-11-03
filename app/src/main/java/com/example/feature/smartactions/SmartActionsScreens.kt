@@ -108,7 +108,7 @@ fun SmartActionsScreen(
     ) {
         AquaTopBar(
             title = "PandaNex Smart Actions",
-            subtitle = "Aqua Dynamics, Shake to Camera, Edge Glow, Auto-Dim & Flip DND"
+            subtitle = "Motion Gestures, Call Controls, Screen Saver, Aqua Dynamics & Dimmed App"
         )
 
         LazyColumn(
@@ -279,14 +279,14 @@ fun SmartActionsScreen(
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             StatusPill(
-                                label = if (settings.autoDimAppsEnabled) "${settings.autoDimTargetBrightnessPercent}%" else "Setup",
+                                label = if (settings.autoDimAppsEnabled) "${settings.autoDimIntensityPercent}%" else "Setup",
                                 condition = if (settings.autoDimAppsEnabled) HealthCondition.NORMAL else HealthCondition.INFO
                             )
                         }
                         Spacer(modifier = Modifier.height(10.dp))
-                        Text("Auto-Dim Apps", style = MaterialTheme.typography.titleSmall)
+                        Text("Dimmed App", style = MaterialTheme.typography.titleSmall)
                         Text(
-                            text = "Bank & Privacy Brightness Shield",
+                            text = "10%–90% Privacy Brightness Shield",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -305,6 +305,15 @@ fun SmartActionsScreen(
                         }
                     }
                 }
+            }
+
+            // Smart Actions & Gestures Control Centre (Raise to Wake, Pick Up to Silence, Proximity Answer, Put Down to Sleep, Dimmed App, Smart Screen Saver)
+            item {
+                SmartActionsAndGesturesSection(
+                    viewModel = viewModel,
+                    onNavigate = onNavigate,
+                    showDedicatedPageLink = true
+                )
             }
 
             // Moto-Style Quick Capture: Shake to Camera Card

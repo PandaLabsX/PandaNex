@@ -74,6 +74,7 @@ import com.example.feature.quickactions.DeviceUtilitiesScreen
 import com.example.feature.quickactions.QuickActionCenterScreen
 import com.example.feature.reports.NotificationCenterScreen
 import com.example.feature.reports.SystemHealthReportScreen
+import com.example.feature.screensaver.SmartScreenSaverScreen
 import com.example.feature.sensors.SensorLabScreen
 import com.example.feature.settings.SettingsScreen
 import com.example.feature.smartactions.AquaDynamicsScreen
@@ -83,6 +84,7 @@ import com.example.feature.smartactions.ComposeAquaDynamicsHost
 import com.example.feature.smartactions.ComposeEdgeGlowOverlay
 import com.example.feature.smartactions.EdgeGlowScreen
 import com.example.feature.smartactions.SmartActionsScreen
+import com.example.feature.smartactions.SmartGesturesControlScreen
 import com.example.feature.viewmodel.PandaMainViewModel
 import com.example.ui.theme.PandaNexTheme
 
@@ -127,7 +129,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        (application as PandaNexApplication).container.quickCaptureController.setActivityForeground(true)
+        val container = (application as PandaNexApplication).container
+        container.quickCaptureController.setActivityForeground(true)
+        container.smartGestureManager.setActivityForeground(true)
     }
 
     override fun onResume() {
@@ -136,10 +140,13 @@ class MainActivity : ComponentActivity() {
         container.fullScreenDetector.syncProbeAndMonitorLoop()
         container.fullScreenDetector.evaluateNow()
         container.quickCaptureController.setActivityForeground(true)
+        container.smartGestureManager.setActivityForeground(true)
     }
 
     override fun onStop() {
-        (application as PandaNexApplication).container.quickCaptureController.setActivityForeground(false)
+        val container = (application as PandaNexApplication).container
+        container.quickCaptureController.setActivityForeground(false)
+        container.smartGestureManager.setActivityForeground(false)
         super.onStop()
     }
 
@@ -423,6 +430,12 @@ private fun PandaNavHost(
         }
         composable<PandaRoute.AutoDimApps> {
             AutoDimAppsScreen(viewModel = viewModel, onBack = goBack)
+        }
+        composable<PandaRoute.SmartGestures> {
+            SmartGesturesControlScreen(viewModel = viewModel, onNavigate = navigateTo, onBack = goBack)
+        }
+        composable<PandaRoute.SmartScreenSaver> {
+            SmartScreenSaverScreen(viewModel = viewModel, onBack = goBack)
         }
         composable<PandaRoute.QuickActionCenter> {
             QuickActionCenterScreen(viewModel = viewModel, onNavigate = navigateTo, onBack = goBack)

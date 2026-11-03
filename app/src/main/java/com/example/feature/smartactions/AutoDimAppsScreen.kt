@@ -29,6 +29,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.BrightnessLow
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.PauseCircleOutline
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
@@ -102,13 +105,14 @@ fun AutoDimAppsScreen(
         installedApps = viewModel.container.autoDimController.loadInstalledSelectableApps()
     }
 
-    // Apply in-window brightness preview when user taps "Test Auto-Dim Now"
-    LaunchedEffect(dimStatus.isPreviewActive, settings.autoDimTargetBrightnessPercent) {
+    // Apply in-window brightness preview when user taps "Preview Dimming Intensity"
+    LaunchedEffect(dimStatus.isPreviewActive, settings.autoDimIntensityPercent) {
         val window = (context as? Activity)?.window
         if (window != null) {
             val lp = window.attributes
+            val remainingPct = (100 - settings.autoDimIntensityPercent.coerceIn(10, 90)).coerceIn(10, 90)
             lp.screenBrightness = if (dimStatus.isPreviewActive) {
-                (settings.autoDimTargetBrightnessPercent / 100f).coerceIn(0.04f, 1f)
+                (remainingPct / 100f).coerceIn(0.08f, 1f)
             } else {
                 WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
             }
@@ -135,6 +139,9 @@ fun AutoDimAppsScreen(
     }
 
     val selectedPackages = settings.autoDimPackagesSet
+    val disabledRules = settings.autoDimDisabledRulesSet
+    val activePackages = settings.activeAutoDimPackagesSet
+
     val filteredApps = remember(installedApps, searchQuery, activeFilter, selectedPackages) {
         installedApps.filter { app ->
             val matchesFilter = when (activeFilter) {
@@ -155,8 +162,8 @@ fun AutoDimAppsScreen(
             .background(Brush.verticalGradient(listOf(aqua.gradientStart, MaterialTheme.colorScheme.background)))
     ) {
         AquaTopBar(
-            title = "Auto-Dimmed Apps",
-            subtitle = "Privacy Brightness Reduction for Banking & Sensitive Apps",
+            title = "Dimmed App Shield",
+            subtitle = "10%–90% Privacy & Eye-Comfort Dimming for Selected Apps",
             onBack = onBack
         )
 
@@ -164,19 +171,19 @@ fun AutoDimAppsScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // 1. Master Control & Live Status Card
+            // 1. Master Control, Temporary Pause & Live Status Card
             item {
-                AquaGlassCard(glowAccent = true) {
-                    SectionHeader(title = "Automatic App Brightness Shield", icon = Icons.Default.BrightnessLow)
+                AquaGlassCard(glowAccent = settings.autoDimAppsEnabled) {
+                    SectionHeader(title = "Automatic Dimmed App Control", icon = Icons.Default.BrightnessLow)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                            Text("Enable Auto-Dimmed Apps", style = MaterialTheme.typography.titleSmall)
+                            Text("Enable Dimmed App", style = MaterialTheme.typography.titleSmall)
                             Text(
-                                "Automatically lowers brightness when selected banking or sensitive apps open, and restores brightness on exit",
+                                "Automatically dims the screen when selected apps open and restores normal brightness when you switch away or close them",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -206,11 +213,19 @@ fun AutoDimAppsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         StatusPill(
-                            label = if (dimStatus.isCurrentlyDimmed) "DIMMING ACTIVE" else "${selectedPackages.size} Apps Protected",
-                            condition = if (dimStatus.isCurrentlyDimmed) HealthCondition.NORMAL else HealthCondition.INFO
+                            label = when {
+                                dimStatus.isTemporarilyPaused -> "PAUSED (${dimStatus.pausedRemainingSeconds}s)"
+                                dimStatus.isCurrentlyDimmed -> "DIMMING ACTIVE"
+                                else -> "${activePackages.size}/${selectedPackages.size} Rules Active"
+                            },
+                            condition = when {
+                                dimStatus.isTemporarilyPaused -> HealthCondition.WARNING
+                                dimStatus.isCurrentlyDimmed -> HealthCondition.NORMAL
+                                else -> HealthCondition.INFO
+                            }
                         )
                         Text(
-                            text = "Target: ${settings.autoDimTargetBrightnessPercent}%",
+                            text = "Intensity: ${settings.autoDimIntensityPercent}%",
                             style = MaterialTheme.typography.labelLarge.copy(fontFamily = JetBrainsMonoFamily),
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -221,60 +236,119 @@ fun AutoDimAppsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
+                    // Temporary Pause / Resume Quick Controls
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
+                    Text("Temporary Pause (Keep Rules Saved):", style = MaterialTheme.typography.labelLarge)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (dimStatus.isTemporarilyPaused) {
+                            Button(
+                                onClick = { viewModel.container.autoDimController.resumeDimmingNow() },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("btn_resume_dimming_now")
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Resume Dimmed App Now")
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = {
+                                    viewModel.container.autoDimController.pauseDimmingTemporarily(5)
+                                    Toast.makeText(context, "Dimmed App paused for 5 minutes", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("btn_pause_dimming_5m")
+                            ) {
+                                Icon(Icons.Default.PauseCircleOutline, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Pause 5m")
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    viewModel.container.autoDimController.pauseDimmingTemporarily(15)
+                                    Toast.makeText(context, "Dimmed App paused for 15 minutes", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("btn_pause_dimming_15m")
+                            ) {
+                                Icon(Icons.Default.PauseCircleOutline, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Pause 15m")
+                            }
+                        }
+                    }
                 }
             }
 
-            // 2. Required & Optional System Permissions
+            // 2. Required Permissions & Security Dialog Auto-Bypass Explanation
             item {
                 AquaGlassCard {
-                    SectionHeader(title = "Required Permissions Setup", icon = Icons.Default.Security)
+                    SectionHeader(title = "Permissions & System Security Safety", icon = Icons.Default.Security)
                     PermissionAccessRow(
-                        title = "App Usage Access (Foreground Detection)",
-                        subtitle = "Detects when a selected banking or sensitive app enters the foreground",
+                        title = "App Usage Access (Foreground App Detection)",
+                        subtitle = "Required so PandaNex knows when a selected app opens or closes",
                         granted = dimStatus.hasUsageAccess,
                         buttonLabel = "Grant Usage",
                         onGrantClick = { SystemUtils.openUsageAccessSettings(context) }
                     )
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     PermissionAccessRow(
-                        title = "Modify System Settings (Brightness Control)",
-                        subtitle = "Reduces system screen brightness & restores exact previous brightness on exit",
-                        granted = dimStatus.hasWriteSettings,
-                        buttonLabel = "Grant Write",
-                        onGrantClick = { SystemUtils.openWriteSettingsPermission(context) }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    PermissionAccessRow(
-                        title = "Privacy Dimmer Shade (Overlay)",
-                        subtitle = "Applies extra anti-peek dark shade over banking screens when enabled",
+                        title = "Display Over Other Apps (Non-Blocking Dimmer Filter)",
+                        subtitle = "Draws a pass-through 10%–90% dark privacy filter without intercepting touches",
                         granted = dimStatus.hasOverlayPermission,
                         buttonLabel = "Grant Overlay",
                         onGrantClick = { SystemUtils.openOverlayPermissionSettings(context) }
                     )
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    PermissionAccessRow(
+                        title = "Modify System Settings (Hardware Backlight Control)",
+                        subtitle = "Optional: lowers hardware screen brightness and restores exact prior level on exit",
+                        granted = dimStatus.hasWriteSettings,
+                        buttonLabel = "Grant Write",
+                        onGrantClick = { SystemUtils.openWriteSettingsPermission(context) }
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Safety Guarantee: Dimming overlays never intercept touch events and automatically suspend whenever Android Permission Controller, Package Installer, Biometric, or Accessibility dialogs appear.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
-            // 3. Brightness Level & Privacy Shade Configuration + Live Preview
+            // 3. Dimming Intensity (10%–90%), Preview & Reset Settings
             item {
                 AquaGlassCard {
-                    SectionHeader(title = "Dimmed Brightness Level", icon = Icons.Default.BrightnessLow)
+                    SectionHeader(title = "Dimming Intensity (10% – 90%)", icon = Icons.Default.BrightnessLow)
                     Text(
-                        text = "Reduced Brightness When App Opens: ${settings.autoDimTargetBrightnessPercent}%",
+                        text = "Dimming Filter Intensity: ${settings.autoDimIntensityPercent}%",
                         style = MaterialTheme.typography.titleSmall
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     AquaLinearBar(
-                        progress = settings.autoDimTargetBrightnessPercent / 100f,
+                        progress = settings.autoDimIntensityPercent / 100f,
                         condition = HealthCondition.INFO
                     )
                     Slider(
-                        value = settings.autoDimTargetBrightnessPercent.toFloat(),
+                        value = settings.autoDimIntensityPercent.coerceIn(10, 90).toFloat(),
                         onValueChange = { v ->
+                            val pct = v.toInt().coerceIn(10, 90)
                             scope.launch {
-                                viewModel.prefs.updateAutoDimSettings(targetBrightnessPercent = v.toInt())
+                                viewModel.prefs.updateAutoDimSettings(
+                                    intensityPercent = pct,
+                                    targetBrightnessPercent = (100 - pct).coerceIn(10, 90)
+                                )
                             }
                         },
-                        valueRange = 5f..45f,
+                        valueRange = 10f..90f,
                         modifier = Modifier.testTag("auto_dim_brightness_slider")
                     )
 
@@ -285,9 +359,9 @@ fun AutoDimAppsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                            Text("Extra Anti-Peek Privacy Shade", style = MaterialTheme.typography.titleSmall)
+                            Text("Anti-Peek Privacy Shade Filter", style = MaterialTheme.typography.titleSmall)
                             Text(
-                                "Adds a non-touch-blocking dark filter over selected apps for public privacy",
+                                "Applies non-blocking dark filter over selected apps for public privacy & night comfort",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -312,7 +386,7 @@ fun AutoDimAppsScreen(
                                 .weight(1f)
                                 .testTag("test_auto_dim_button")
                         ) {
-                            Text("Test Dimming (3.5s)")
+                            Text("Preview Intensity")
                         }
                         OutlinedButton(
                             onClick = {
@@ -326,13 +400,28 @@ fun AutoDimAppsScreen(
                             Text("Restore")
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.container.autoDimController.resetSettingsToDefaults()
+                            Toast.makeText(context, "Dimmed App settings reset to defaults", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("reset_auto_dim_button")
+                    ) {
+                        Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Reset Dimmed App Settings")
+                    }
                 }
             }
 
-            // 4. App Selection Header, Suggested Banking Filter & Search
+            // 4. App Selection & Per-App Rule Toggle Header
             item {
                 AquaGlassCard {
-                    SectionHeader(title = "Select Banking & Sensitive Apps", icon = Icons.Default.AccountBalance)
+                    SectionHeader(title = "Select Apps & Individual Rules", icon = Icons.Default.AccountBalance)
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
@@ -382,7 +471,7 @@ fun AutoDimAppsScreen(
                                     viewModel.prefs.updateAutoDimSettings(packagesSet = selectedPackages + bankPkgs)
                                     Toast.makeText(
                                         context,
-                                        "Added ${bankPkgs.size} banking/finance apps to Auto-Dim",
+                                        "Added ${bankPkgs.size} banking/finance apps to Dimmed App",
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 }
@@ -416,9 +505,10 @@ fun AutoDimAppsScreen(
             } else {
                 items(filteredApps, key = { it.packageName }) { app ->
                     val isSelected = selectedPackages.contains(app.packageName)
+                    val isRuleEnabled = isSelected && !disabledRules.contains(app.packageName)
                     AquaGlassCard(
                         contentPadding = PaddingValues(12.dp),
-                        glowAccent = isSelected,
+                        glowAccent = isRuleEnabled,
                         modifier = Modifier.clickable {
                             scope.launch { viewModel.prefs.toggleAutoDimPackage(app.packageName) }
                         }
@@ -462,11 +552,26 @@ fun AutoDimAppsScreen(
                                     }
                                 }
                                 Text(
-                                    text = app.packageName,
+                                    text = if (isSelected) {
+                                        if (isRuleEnabled) "${app.packageName} • Rule Active" else "${app.packageName} • Rule Paused"
+                                    } else {
+                                        app.packageName
+                                    },
                                     style = MaterialTheme.typography.labelSmall.copy(fontFamily = JetBrainsMonoFamily),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            if (isSelected) {
+                                Switch(
+                                    checked = isRuleEnabled,
+                                    onCheckedChange = { ruleActive ->
+                                        scope.launch {
+                                            viewModel.prefs.setIndividualAppDimRuleEnabled(app.packageName, ruleActive)
+                                        }
+                                    },
+                                    modifier = Modifier.padding(end = 4.dp)
                                 )
                             }
                             Checkbox(

@@ -22,19 +22,22 @@
     <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
     <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="false" />
     <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="false" />
+    <uses-feature android:name="android.hardware.sensor.proximity" android:required="false" />
 
-    <!-- Audio, Do Not Disturb & Haptics -->
+    <!-- Audio, Do Not Disturb, Display Wake & Haptics -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- Notifications & Foreground Monitoring Service -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
-    <!-- Edge Glow (Incoming Calls & System Overlay) & Auto-Dimmed Apps (Usage Stats & Brightness) -->
+    <!-- Smart Call Controls, Edge Glow & Dimmed App (Usage Stats, Overlay & Brightness) -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission
@@ -81,6 +84,32 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".feature.screensaver.SmartScreenSaverActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:showOnLockScreen="true"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.MyApplication"
+            android:turnScreenOn="true" />
+
+        <service
+            android:name=".feature.screensaver.PandaSmartDreamService"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/dream_service_label"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.dream"
+                android:resource="@xml/panda_dream_info" />
+        </service>
+
         <service
             android:name=".automation.SensorMonitoringService"
             android:enabled="true"
@@ -88,7 +117,7 @@
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="User-configured motion gesture automation (Shake to Camera Quick Capture, Flip to DND, Shake to Flashlight), Auto-Dimmed Apps brightness control, Edge Glow call detection, and device thermal/battery alert monitoring" />
+                android:value="User-configured smart motion gestures (Raise to Wake, Smart Screen Saver, Pick Up to Silence, Proximity Call Answer, Put Down to Sleep, Quick Capture, Flip to DND), Dimmed App protection, Edge Glow, and device health alert monitoring" />
         </service>
 
         <service
@@ -101,6 +130,21 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <receiver
+            android:name=".automation.PandaDeviceAdminReceiver"
+            android:description="@string/device_admin_description"
+            android:exported="true"
+            android:label="@string/device_admin_label"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/panda_device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.DEVICE_ADMIN_DISABLED" />
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"

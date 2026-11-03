@@ -100,9 +100,11 @@ fun HomeDashboardScreen(
     val aqua = LocalAquaColors.current
 
     val quickTools = listOf(
+        QuickToolChip("Smart Gestures", Icons.Default.Bolt, PandaRoute.SmartGestures, "quick_smart_gestures"),
+        QuickToolChip("Screen Saver", Icons.Default.AutoAwesome, PandaRoute.SmartScreenSaver, "quick_screen_saver"),
         QuickToolChip("Aqua Capsule", Icons.Default.AutoAwesome, PandaRoute.AquaDynamics, "quick_aqua_dynamics"),
         QuickToolChip("Edge Glow", Icons.Default.AutoAwesome, PandaRoute.EdgeGlow, "quick_edge_glow"),
-        QuickToolChip("Auto-Dim", Icons.Default.AccountBalance, PandaRoute.AutoDimApps, "quick_auto_dim"),
+        QuickToolChip("Dimmed App", Icons.Default.AccountBalance, PandaRoute.AutoDimApps, "quick_auto_dim"),
         QuickToolChip("Quick Center", Icons.Default.GridView, PandaRoute.QuickActionCenter, "quick_center_chip"),
         QuickToolChip("Net Diag", Icons.Default.NetworkCheck, PandaRoute.NetworkDiagnostics, "quick_net_diag"),
         QuickToolChip("Wi-Fi Signal", Icons.Default.Wifi, PandaRoute.WifiAnalyzer, "quick_wifi"),

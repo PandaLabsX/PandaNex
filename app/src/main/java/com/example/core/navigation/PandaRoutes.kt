@@ -30,6 +30,8 @@ sealed interface PandaRoute {
 
     // Smart Automation, Aqua Dynamics, Edge Glow, Auto-Dimmed Apps, Quick Action Center & Device Utilities
     @Serializable data object AquaDynamics : PandaRoute
+    @Serializable data object SmartGestures : PandaRoute
+    @Serializable data object SmartScreenSaver : PandaRoute
     @Serializable data object AutomationBuilder : PandaRoute
     @Serializable data object EdgeGlow : PandaRoute
     @Serializable data object AutoDimApps : PandaRoute

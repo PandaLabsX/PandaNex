@@ -20,6 +20,7 @@ import com.example.automation.LiveGestureTelemetry
 import com.example.automation.QuickCaptureSensitivity
 import com.example.automation.QuickCaptureState
 import com.example.automation.SensorMonitoringService
+import com.example.automation.SmartGestureHubState
 import com.example.core.ui.HealthCondition
 import com.example.data.local.database.AlertNotificationEntity
 import com.example.data.local.database.AutomationEventEntity
@@ -91,6 +92,7 @@ class PandaMainViewModel(application: Application) : AndroidViewModel(applicatio
 
     val gestureTelemetry: StateFlow<LiveGestureTelemetry> = container.automationEngine.telemetry
     val quickCaptureState: StateFlow<QuickCaptureState> = container.quickCaptureController.state
+    val smartGestureState: StateFlow<SmartGestureHubState> = container.smartGestureManager.state
     val edgeGlowState: StateFlow<EdgeGlowActiveState> = container.edgeGlowManager.state
     val aquaDynamicsState: StateFlow<AquaDynamicsEngineSnapshot> = container.aquaDynamicsManager.state
     val autoDimStatus: StateFlow<AutoDimStatus> = container.autoDimController.status
@@ -305,6 +307,7 @@ class PandaMainViewModel(application: Application) : AndroidViewModel(applicatio
                 }
 
                 container.automationEngine.refreshSystemStatus()
+                container.smartGestureManager.refreshStateAndListeners()
                 container.edgeGlowManager.refreshPermissions()
                 container.aquaDynamicsManager.refreshEffectiveCallState()
                 container.autoDimController.refreshPermissions()
@@ -563,6 +566,10 @@ class PandaMainViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun settleAquaDynamicsDrag(velocityY: Float) {
         container.aquaDynamicsManager.onUserDragSettle(velocityY)
+    }
+
+    fun launchScreenSaverPreview(styleOverride: String? = null): Pair<Boolean, String> {
+        return container.smartGestureManager.launchScreenSaverPreview(styleOverride)
     }
 
     // Notifications Actions
