@@ -1,5 +1,5 @@
 # ==============================================================================
-# PandaNex — Android & Bitrise CI/CD .gitignore
+# PandaNex — Android .gitignore
 # ==============================================================================
 
 # Gradle & Kotlin build caches
@@ -54,9 +54,8 @@ Thumbs.db
 *.tmp
 *.bak
 
-# Explicitly keep Gradle Wrapper & Bitrise CI configuration tracked in Git
+# Explicitly keep Gradle Wrapper tracked in Git
 !gradlew
 !gradlew.bat
 !gradle/wrapper/gradle-wrapper.jar
 !gradle/wrapper/gradle-wrapper.properties
-!bitrise.yml
