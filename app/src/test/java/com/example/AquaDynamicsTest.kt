@@ -31,7 +31,7 @@ import org.robolectric.Shadows
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [36])
 class AquaDynamicsTest {
 
     private fun sampleCpu(usage: Float) = CpuSnapshot(
@@ -496,5 +496,31 @@ class AquaDynamicsTest {
         app.onConfigurationChanged(portraitConfig)
         manager.dismissActiveCapsule()
         Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+    }
+
+    @Test
+    fun `verify Aqua Dynamics appears directly in expanded dynamic mode without intermediate message transition`() {
+        val gatekeeper = AquaDynamicsGatekeeper(PandaSettings(aquaDynamicsEnabled = true))
+        val event = AquaDynamicsEvent(
+            id = "test_direct_anim",
+            signatureKey = "TEST_SIG_1",
+            conditionGroupKey = "TEST_GROUP",
+            category = AquaEventCategory.DEVICE_PERFORMANCE,
+            priority = AquaEventPriority.IMPORTANT,
+            title = "Device Performance",
+            subtitle = "Direct Dynamic Animation",
+            badgeText = "OPT",
+            iconType = "CPU",
+            accentColorHex = 0xFFFF5252L
+        )
+
+        // When submitted, Aqua Dynamics must immediately launch directly as EXPANDED with fraction 1.0f
+        val accepted = gatekeeper.submitEvent(event)
+        assertTrue(accepted)
+
+        val snapshot = gatekeeper.currentSnapshot()
+        assertEquals(AquaDisplayMode.EXPANDED, snapshot.displayMode)
+        assertEquals(1f, snapshot.interactiveExpandFraction, 0.001f)
+        assertEquals("Device Performance", snapshot.activeEvent?.title)
     }
 }

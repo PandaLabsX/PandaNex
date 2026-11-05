@@ -1144,6 +1144,9 @@ private class AquaSystemOverlayCapsuleView(
         isFakeBoldText = true
     }
 
+    private var currentEventSignature: String = ""
+    private var lastDisplayMode: AquaDisplayMode = AquaDisplayMode.HIDDEN
+
     private val pillRect = RectF()
     private val closeHitRect = RectF()
     private var morphAnimator: ValueAnimator? = null
@@ -1177,6 +1180,10 @@ private class AquaSystemOverlayCapsuleView(
 
     fun bindSnapshot(snapshot: AquaDynamicsEngineSnapshot, style: String) {
         val ev = snapshot.activeEvent ?: return
+        val isNewEvent = currentEventSignature != ev.signatureKey || lastDisplayMode == AquaDisplayMode.HIDDEN
+        currentEventSignature = ev.signatureKey
+        lastDisplayMode = snapshot.displayMode
+
         titleText = ev.title
         subtitleText = ev.subtitle
         badgeText = ev.badgeText
@@ -1188,6 +1195,17 @@ private class AquaSystemOverlayCapsuleView(
             AquaDisplayMode.EXPANDED -> snapshot.interactiveExpandFraction.coerceIn(0f, 1f)
             AquaDisplayMode.MINIMIZED -> snapshot.interactiveExpandFraction.coerceIn(0f, 1f)
             AquaDisplayMode.HIDDEN -> 0f
+        }
+
+        // When a new event arrives in EXPANDED mode, present the animated dynamic interface
+        // directly from the first frame. Do not play an intermediate message-to-dynamics transition!
+        if (isNewEvent && snapshot.displayMode == AquaDisplayMode.EXPANDED) {
+            morphAnimator?.cancel()
+            animatedFraction = 1f
+            targetFraction = 1f
+            onSizeStepChanged(this, desiredWindowWidthPx(), desiredWindowHeightPx())
+            invalidate()
+            return
         }
 
         if (draggingVertical || style == "REDUCED" || abs(desired - animatedFraction) < 0.02f) {

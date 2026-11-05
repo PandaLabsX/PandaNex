@@ -7,9 +7,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -201,6 +205,7 @@ fun ComposeAquaDynamicsHost(
             if (event != null) {
                 InteractiveAquaCapsulePill(
                     event = event,
+                    displayMode = snapshot.displayMode,
                     expandFraction = snapshot.interactiveExpandFraction,
                     animationStyle = animationStyle,
                     touchSlopPx = viewConfig.touchSlop,
@@ -219,6 +224,7 @@ fun ComposeAquaDynamicsHost(
 @Composable
 private fun InteractiveAquaCapsulePill(
     event: AquaDynamicsEvent,
+    displayMode: AquaDisplayMode,
     expandFraction: Float,
     animationStyle: String,
     touchSlopPx: Float,
@@ -229,6 +235,9 @@ private fun InteractiveAquaCapsulePill(
     onTapMinimize: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    // When an event is triggered in EXPANDED mode, it appears directly as an animated dynamic interface
+    // from the very beginning. We do NOT show an intermediate notification/message pill.
+    val isExplicitlyMinimized = (displayMode == AquaDisplayMode.MINIMIZED)
     val floatSpec = when (animationStyle) {
         "REDUCED" -> tween<Float>(0)
         "CRISP" -> tween(180, easing = FastOutSlowInEasing)
@@ -237,23 +246,46 @@ private fun InteractiveAquaCapsulePill(
             stiffness = Spring.StiffnessMedium
         )
     }
+
+    // Direct fraction: in EXPANDED mode on a new event, start at 1f directly without message-to-dynamics transition
     val animatedFraction by animateFloatAsState(
-        targetValue = expandFraction.coerceIn(0f, 1f),
+        targetValue = if (isExplicitlyMinimized) 0f else expandFraction.coerceIn(0f, 1f),
         animationSpec = floatSpec,
         label = "aqua_expand_fraction"
+    )
+
+    // Fluid aqua-inspired breathing aura
+    val infiniteTransition = rememberInfiniteTransition(label = "aqua_fluid_pulse_${event.id}")
+    val fluidAuraAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.50f,
+        targetValue = 0.92f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1300, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "fluid_aura"
+    )
+    val iconHaloPulse by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.10f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1100, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "icon_halo"
     )
 
     val targetWidth = (188f + (176f * animatedFraction)).dp
     val targetHeight = (40f + (42f * animatedFraction)).dp
     val cornerRadius by animateDpAsState(
-        targetValue = if (animatedFraction < 0.45f) 24.dp else 26.dp,
+        targetValue = if (isExplicitlyMinimized && animatedFraction < 0.35f) 24.dp else 26.dp,
         label = "aqua_corner_radius"
     )
 
     val accentColor = Color(event.accentColorHex)
-    // Minimized state uses pure black rounded floating background (#030509); Expanded uses deep Clean Aqua midnight glass
+    // Minimized state uses pure black rounded floating background (#020408); Expanded uses deep Clean Aqua midnight glass
     val containerColor = lerp(Color(0xF8020408), Color(0xF5071529), animatedFraction)
-    val borderColor = accentColor.copy(alpha = 0.48f + 0.34f * animatedFraction)
+    val borderColor = accentColor.copy(alpha = (0.50f + 0.35f * animatedFraction) * (if (animationStyle == "REDUCED") 1f else fluidAuraAlpha))
 
     var swipeOffsetX by remember(event.id) { mutableFloatStateOf(0f) }
     var dragAccumY by remember(event.id, expandFraction > 0.5f) { mutableFloatStateOf(0f) }
@@ -268,8 +300,8 @@ private fun InteractiveAquaCapsulePill(
             .shadow(
                 elevation = (6f + 8f * animatedFraction).dp,
                 shape = RoundedCornerShape(cornerRadius),
-                ambientColor = accentColor.copy(alpha = 0.35f),
-                spotColor = accentColor.copy(alpha = 0.45f)
+                ambientColor = accentColor.copy(alpha = 0.35f * fluidAuraAlpha),
+                spotColor = accentColor.copy(alpha = 0.45f * fluidAuraAlpha)
             )
             .pointerInput(event.id) {
                 detectVerticalDragGestures(
@@ -314,19 +346,19 @@ private fun InteractiveAquaCapsulePill(
                 )
             }
             .clickable {
-                if (animatedFraction < 0.45f) {
+                if (isExplicitlyMinimized || animatedFraction < 0.45f) {
                     onTapExpand()
                 } else {
                     onTapMinimize()
                 }
             }
-            .testTag(if (animatedFraction < 0.45f) "aqua_capsule_minimized" else "aqua_capsule_expanded"),
+            .testTag(if (isExplicitlyMinimized && animatedFraction < 0.45f) "aqua_capsule_minimized" else "aqua_capsule_expanded"),
         shape = RoundedCornerShape(cornerRadius),
         color = containerColor,
         border = BorderStroke(1.2.dp, borderColor)
     ) {
-        if (animatedFraction < 0.45f) {
-            // Compact Minimized Black Rounded Pill around Camera Area
+        if (isExplicitlyMinimized && animatedFraction < 0.40f) {
+            // Compact Minimized Black Rounded Pill around Camera Area (shown ONLY when deliberately minimized)
             Row(
                 modifier = Modifier
                     .fillMaxSize()
@@ -365,7 +397,7 @@ private fun InteractiveAquaCapsulePill(
                 )
             }
         } else {
-            // Fluid Expanded Aqua Dynamics Capsule
+            // Direct Animated Dynamic Aqua Interface from the very first frame
             Box(modifier = Modifier.fillMaxSize()) {
                 Row(
                     modifier = Modifier
@@ -380,6 +412,13 @@ private fun InteractiveAquaCapsulePill(
                             .background(accentColor.copy(alpha = 0.16f)),
                         contentAlignment = Alignment.Center
                     ) {
+                        // Dynamic glowing halo around icon
+                        Box(
+                            modifier = Modifier
+                                .size((34f * iconHaloPulse).dp)
+                                .clip(CircleShape)
+                                .background(accentColor.copy(alpha = 0.08f * fluidAuraAlpha))
+                        )
                         Icon(
                             imageVector = resolveAquaEventIcon(event.iconType),
                             contentDescription = null,

@@ -19,7 +19,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [36])
 class SmartGesturesAndDimmedAppTest {
 
     @Test
@@ -207,5 +207,30 @@ class SmartGesturesAndDimmedAppTest {
         )
         assertEquals(setOf("com.bank.one", "com.bank.two", "com.wallet.three"), settings.autoDimPackagesSet)
         assertEquals(setOf("com.bank.one", "com.wallet.three"), settings.activeAutoDimPackagesSet)
+    }
+
+    @Test
+    fun autoDimController_previewAndPauseResume_behaveProperly() {
+        val app = ApplicationProvider.getApplicationContext<PandaNexApplication>()
+        val dimmedManager = app.container.dimmedAppManager
+
+        // Initial state is not dimmed
+        assertFalse(dimmedManager.status.value.isCurrentlyDimmed)
+
+        // Trigger in-app preview
+        dimmedManager.triggerPreviewDim(durationMs = 2000L)
+        assertTrue(dimmedManager.status.value.isPreviewActive)
+        assertTrue(dimmedManager.status.value.isCurrentlyDimmed)
+
+        // Restore normal brightness
+        dimmedManager.restoreNormalBrightness("Test restore")
+        assertFalse(dimmedManager.status.value.isCurrentlyDimmed)
+        assertFalse(dimmedManager.status.value.isPreviewActive)
+
+        // Temporary pause
+        dimmedManager.pauseDimmingTemporarily(durationMinutes = 5)
+        // Resume
+        dimmedManager.resumeDimmingNow()
+        assertFalse(dimmedManager.status.value.isTemporarilyPaused)
     }
 }

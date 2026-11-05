@@ -5,6 +5,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import android.provider.Settings
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
@@ -35,8 +41,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -170,6 +179,7 @@ fun PandaNexAppShell(viewModel: PandaMainViewModel) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val edgeGlowState by viewModel.edgeGlowState.collectAsStateWithLifecycle()
     val aquaDynamicsState by viewModel.aquaDynamicsState.collectAsStateWithLifecycle()
+    val autoDimStatus by viewModel.autoDimStatus.collectAsStateWithLifecycle()
     val fullScreenState by viewModel.fullScreenState.collectAsStateWithLifecycle()
     val hideAquaChrome = settings.hideAquaDynamicsInFullScreen && fullScreenState.inAppFullScreenActive
 
@@ -324,6 +334,13 @@ fun PandaNexAppShell(viewModel: PandaMainViewModel) {
                 onTapMinimize = { viewModel.minimizeAquaDynamicsCapsule() },
                 onDismiss = { viewModel.dismissAquaDynamicsCapsule() }
             )
+
+            // In-App Non-Blocking Dimmed App Shade (provides visible 10%–90% dimming in-app and during preview)
+            ComposeAutoDimOverlay(
+                isDimmed = autoDimStatus.isCurrentlyDimmed,
+                intensityPercent = autoDimStatus.dimmingIntensityPercent,
+                systemOverlayActive = Settings.canDrawOverlays(LocalContext.current) && !autoDimStatus.isPreviewActive
+            )
         }
     }
 }
@@ -449,5 +466,36 @@ private fun PandaNavHost(
         composable<PandaRoute.DeviceUtilities> {
             DeviceUtilitiesScreen(viewModel = viewModel, onBack = goBack)
         }
+    }
+}
+
+/**
+ * Non-blocking pass-through privacy shade filter rendered in-app when Dimmed App is active,
+ * or during preview, or when system WindowManager overlay is not active.
+ */
+@Composable
+private fun ComposeAutoDimOverlay(
+    isDimmed: Boolean,
+    intensityPercent: Int,
+    systemOverlayActive: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val shouldShow = isDimmed && !systemOverlayActive
+    val alphaFraction = remember(intensityPercent) {
+        ((intensityPercent.coerceIn(10, 90) / 100f) * 0.88f).coerceIn(0.08f, 0.80f)
+    }
+
+    AnimatedVisibility(
+        visible = shouldShow,
+        enter = fadeIn(tween(260)),
+        exit = fadeOut(tween(260)),
+        modifier = modifier.fillMaxSize()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = alphaFraction))
+                .testTag("in_app_auto_dim_shade")
+        )
     }
 }

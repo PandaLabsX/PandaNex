@@ -391,6 +391,11 @@ class AlertEngine(
         // Notify Aqua Dynamics event engine (even if POST_NOTIFICATIONS is not granted)
         onStructuredAlertDispatched?.invoke(dedupKey, category, severity, title, message, statusDetail)
 
+        // When Aqua Dynamics is enabled, Aqua Dynamics presents the dynamic animated interface directly.
+        // Do NOT show a standard Android notification or message before displaying Aqua Dynamics.
+        // Alert notifications remain saved separately in the PandaNex Notification Center (Room DB) above.
+        if (settings.aquaDynamicsEnabled) return
+
         // Post Android System Notification if permitted and outside quiet hours (unless CRITICAL)
         if (isInQuietHours(settings) && severity != "CRITICAL") return
 
